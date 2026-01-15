@@ -46,7 +46,7 @@ FitLife AI follows an **AI Agent–based architecture** using LangGraph-style wo
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 * **Backend:** FastAPI
 * **AI Orchestration:** LangGraph (Agent-based workflows)
