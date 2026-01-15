@@ -1,0 +1,16 @@
+SQLAlchemy
+pydantic
+fastapi
+uvicorn
+pydantic[email]
+psycopg2-binary
+pydantic-settings
+python-jose
+passlib==1.7.4 
+bcrypt==3.2.2
+openai
+langchain
+langchain-openai
+langgraph
+tiktoken
+requests

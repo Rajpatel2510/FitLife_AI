@@ -1,0 +1,87 @@
+# =====================================
+# GLOBAL / OS
+# =====================================
+.DS_Store
+Thumbs.db
+
+# =====================================
+# FRONTEND (Next.js / React / Node)
+# =====================================
+node_modules/
+.next/
+out/
+build/
+dist/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+.vercel/
+
+*.tsbuildinfo
+next-env.d.ts
+
+# =====================================
+# BACKEND (Python / FastAPI)
+# =====================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+
+# =====================================
+# PYTHON VIRTUAL ENVIRONMENTS
+# =====================================
+venv/
+.venv/
+ENV/
+env/
+myenv/
+pyvenv.cfg
+
+# =====================================
+# ENVIRONMENT VARIABLES / SECRETS
+# =====================================
+.env
+.env.*
+!.env.example
+
+# =====================================
+# AI / LLM / CACHE
+# =====================================
+.langchain/
+.langgraph/
+.cache/
+cache/
+
+# =====================================
+# DATABASE (LOCAL ONLY)
+# =====================================
+*.db
+*.sqlite3
+
+# =====================================
+# TESTING / COVERAGE
+# =====================================
+.pytest_cache/
+coverage/
+coverage.xml
+htmlcov/
+
+# =====================================
+# LOGS / TEMP
+# =====================================
+logs/
+tmp/
+
+# =====================================
+# EDITORS / IDEs
+# =====================================
+.vscode/*
+!.vscode/settings.json
+
+.idea/
+*.swp
