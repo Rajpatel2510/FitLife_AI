@@ -364,7 +364,7 @@ interface AppState {
   generateMealPlan: (token?: string) => Promise<void>
   setMealPlan: (plan: MealPlan | null) => void
 
-  loadUserData: () => Promise<void>
+  loadUserData: () => Promise<any>
 
   logout: () => void
 
@@ -420,7 +420,7 @@ export const useAppStore = create<AppState>()(
 
           // ✅ NORMALIZE HERE
           set({
-            workoutPlan: plan?.WorkoutWeekPlan ?? null,
+            workoutPlan: plan ?? null,
           })
         } finally {
           set({ isGeneratingWorkoutPlan: false })
@@ -488,25 +488,18 @@ export const useAppStore = create<AppState>()(
         const token = localStorage.getItem("access_token")
         if (!token) {
           console.warn("⚠️ No access token found")
-          return
+          return null
         }
 
         const { fetchUserData } = await import("@/lib/api")
         const data = await fetchUserData(token)
-
-        console.log("MEAL PLAN FROM API:", data.meal_plan)
-
-        set({
-          workoutPlan: data.workout_plan?.WorkoutWeekPlan ?? null,
-        })
-
         set({
           userProfile: data.profile ?? null,
-          workoutPlan: data.workout_plan?.WorkoutWeekPlan ?? null,
-          mealPlan: data.meal_plan ? { week: data.meal_plan } : null,
+          workoutPlan: data.workout_plan ?? null,
+          mealPlan: data.meal_plan ?? null,
           isOnboarded: true,
         })
-
+        return data
       },
 
 

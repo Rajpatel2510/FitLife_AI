@@ -13,7 +13,7 @@ import { StepLifestyleOptional } from "@/components/onboarding/step-lifestyle-op
 import { generatePlans } from "@/lib/plan-generator"
 import { createUser, createUserProfile, login, fetchUserData } from "@/lib/api"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, LogIn, MailWarning, X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -63,6 +63,56 @@ export default function OnboardingPage() {
 
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [loginData, setLoginData] = useState({ email: "", password: "" })
+
+  const showEmailExistsPopup = () => {
+    toast.custom((t) => (
+      <div className="w-[360px] overflow-hidden rounded-2xl border border-amber-300/70 bg-gradient-to-br from-amber-50 via-white to-orange-50 shadow-2xl">
+        <div className="flex items-start gap-3 p-4">
+          <div className="mt-0.5 rounded-xl bg-amber-100 p-2 text-amber-700">
+            <MailWarning className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-slate-900">Email already registered</p>
+            <p className="mt-1 text-sm leading-5 text-slate-600">
+              An account with <span className="font-medium text-slate-900">{formData.email}</span> already exists. Try logging in instead of creating a new one.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close notification"
+            onClick={() => toast.dismiss(t)}
+            className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-amber-200/70 bg-white/70 px-4 py-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-slate-300"
+            onClick={() => toast.dismiss(t)}
+          >
+            Close
+          </Button>
+          <Button
+            type="button"
+            className="bg-amber-500 text-white hover:bg-amber-600"
+            onClick={() => {
+              setLoginData((prev) => ({ ...prev, email: formData.email }))
+              setIsLoginOpen(true)
+              toast.dismiss(t)
+            }}
+          >
+            <LogIn className="mr-2 h-4 w-4" />
+            Log In
+          </Button>
+        </div>
+      </div>
+    ), {
+      duration: 7000,
+    })
+  }
 
   const handleLogin = async () => {
     try {
@@ -213,8 +263,12 @@ export default function OnboardingPage() {
       if (error.message.includes("Failed to generate plan")) msg = "AI Plan Generation failed, but your profile was saved."
       else if (error.message.includes("Failed to create user profile")) msg = "User created, but profile saving failed."
       else if (error.message.includes("Email already registered")) msg = "This email is already registered. Please try logging in."
-
-      toast.error(error.message || msg)
+      
+      if (error.message?.includes("Email already registered")) {
+        showEmailExistsPopup()
+      } else {
+        toast.error(error.message || msg)
+      }
     } finally {
       setIsSubmitting(false)
     }

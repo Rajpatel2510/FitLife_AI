@@ -1,5 +1,5 @@
 // Backend API URL
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 const TOKEN_KEY = "access_token";
 console.log("API_URL =", API_URL);
@@ -23,11 +23,74 @@ export const clearAuthToken = () => {
   }
 };
 
+function getFallbackApiUrl() {
+  if (API_URL.includes("localhost")) {
+    return API_URL.replace("localhost", "127.0.0.1");
+  }
+
+  if (API_URL.includes("127.0.0.1")) {
+    return API_URL.replace("127.0.0.1", "localhost");
+  }
+
+  return null;
+}
+
+async function apiFetch(path: string, init?: RequestInit) {
+  try {
+    return await fetch(`${API_URL}${path}`, init);
+  } catch (error) {
+    const fallbackApiUrl = getFallbackApiUrl();
+
+    if (!fallbackApiUrl) {
+      throw error;
+    }
+
+    return fetch(`${fallbackApiUrl}${path}`, init);
+  }
+}
+
+function buildNetworkError(error: unknown) {
+  const message =
+    error instanceof Error && error.message
+      ? error.message
+      : `Could not reach backend at ${API_URL}.`;
+
+  return new Error(
+    `${message} Make sure the backend is running, NEXT_PUBLIC_API_URL is correct, CORS allows the frontend origin, and restart the Next.js dev server after changing env values.`,
+  );
+}
+
+function normalizeStoredMealPlan(rawPlan: any, userProfile?: any) {
+  if (!rawPlan) return null;
+
+  const plan = rawPlan.meal_plan || rawPlan;
+  const hasWeeklyDays =
+    typeof plan === "object" &&
+    plan !== null &&
+    Object.keys(plan).some((key) => key.startsWith("day_"));
+
+  if (hasWeeklyDays) {
+    return {
+      week: plan,
+    };
+  }
+
+  const normalizedPlan = transformMealPlan(plan, userProfile);
+
+  if (normalizedPlan?.meals && Array.isArray(normalizedPlan.meals)) {
+    return normalizedPlan;
+  }
+
+  return {
+    week: plan,
+  };
+}
+
 
 export async function createUser(userData: any) {
   try {
     const data = { ...userData, email: userData.email?.toLowerCase().trim() };
-    const response = await fetch(`${API_URL}/onboarding/create_user`, {
+    const response = await apiFetch(`/onboarding/create_user`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -43,7 +106,13 @@ export async function createUser(userData: any) {
     return response.json();
   } catch (error: any) {
     console.error("API Error:", error);
-    throw new Error(`Failed to connect to backend at ${API_URL}: ${error.message}`);
+    const isNetworkError = error instanceof TypeError || error?.message === "Failed to fetch";
+    if (isNetworkError) {
+      throw new Error(
+        `Could not reach backend at ${API_URL}. Make sure the backend is running, the port is correct, CORS allows the frontend origin, and restart the Next.js dev server after changing NEXT_PUBLIC_API_URL.`,
+      );
+    }
+    throw new Error(error?.message || `Failed to connect to backend at ${API_URL}`);
   }
 }
 
@@ -55,7 +124,7 @@ export async function createUserProfile(userId: string | number, profileData: an
     throw new Error("User not authenticated. Please login again.")
   }
 
-  const response = await fetch(`${API_URL}/onboarding/create_user_profile/${userId}`, {
+  const response = await apiFetch(`/onboarding/create_user_profile/${userId}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -73,7 +142,7 @@ export async function createUserProfile(userId: string | number, profileData: an
 }
 
 export async function login(credentials: any) {
-  const response = await fetch(`${API_URL}/onboarding/login`, {
+  const response = await apiFetch(`/onboarding/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -100,13 +169,19 @@ export async function login(credentials: any) {
 
 
 export async function fetchUserData(token: string) {
-  const res = await fetch(`${API_URL}/onboarding/me`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  })
+  let res: Response
+
+  try {
+    res = await apiFetch(`/onboarding/me`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  } catch (error) {
+    throw buildNetworkError(error)
+  }
 
   if (!res.ok) {
     const text = await res.text()
@@ -114,7 +189,13 @@ export async function fetchUserData(token: string) {
     throw new Error(`Failed to fetch user data (${res.status})`)
   }
 
-  return res.json()
+  const data = await res.json()
+
+  return {
+    ...data,
+    workout_plan: transformWorkoutPlan(data.workout_plan),
+    meal_plan: normalizeStoredMealPlan(data.meal_plan, data.profile),
+  }
 }
 
 export async function generateWorkoutPlan(userProfile: any, token?: string) {
@@ -126,7 +207,7 @@ export async function generateWorkoutPlan(userProfile: any, token?: string) {
     headers["Authorization"] = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(`${API_URL}/workout/generate`, {
+  const response = await apiFetch(`/workout/generate`, {
     method: "POST",
     headers: headers,
     body: JSON.stringify({ user_profile: userProfile }),
@@ -175,7 +256,7 @@ export async function generateMealPlan(userProfile: any, token?: string) {
     headers["Authorization"] = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(`${API_URL}/nutrition/generate`, {
+  const response = await apiFetch(`/nutrition/generate`, {
     method: "POST",
     headers: headers,
     body: JSON.stringify({ user_profile: userProfile }),
@@ -193,7 +274,7 @@ export async function generateMealPlan(userProfile: any, token?: string) {
   const data = await response.json()
   // backend returns { meal_plan: { ... } }
   const rawPlan = data.meal_plan || data;
-  return transformMealPlan(rawPlan, userProfile);
+  return normalizeStoredMealPlan(rawPlan, userProfile);
 }
 
 function transformMealPlan(rawPlan: any, userProfile?: any) {
@@ -342,7 +423,7 @@ export async function saveDailyProgress(log: any) {
     meal_adherence: Number(log.mealAdherence || 0),
   };
 
-  const res = await fetch(`${API_URL}/progress/`, {
+  const res = await apiFetch(`/progress/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -363,26 +444,36 @@ export async function getTodayProgress() {
   const token = localStorage.getItem("access_token")
   if (!token) return { exists: false }
 
-  const res = await fetch(`${API_URL}/progress/today`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
+  try {
+    const res = await apiFetch(`/progress/today`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
 
-  if (!res.ok) return { exists: false }
-  return res.json()
+    if (!res.ok) return { exists: false }
+    return res.json()
+  } catch (error) {
+    console.error("Failed to fetch today's progress:", error)
+    return { exists: false }
+  }
 }
 
 export async function getProgressHistory() {
   const token = localStorage.getItem("access_token")
   if (!token) return []
 
-  const res = await fetch(`${API_URL}/progress/history`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
+  try {
+    const res = await apiFetch(`/progress/history`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
 
-  if (!res.ok) return []
-  return res.json()
+    if (!res.ok) return []
+    return res.json()
+  } catch (error) {
+    console.error("Failed to fetch progress history:", error)
+    return []
+  }
 }

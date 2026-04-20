@@ -54,12 +54,14 @@ export function MealPreview() {
   const mealPlan = useAppStore((state) => state.mealPlan)
   const userProfile = useAppStore((state) => state.userProfile)
 
-  // Data structure: mealPlan.week contains { breakfast, lunch, dinner, etc. }
-  // It is currently a single-day plan, not a week.
   const planData = mealPlan?.week
+  const dayKeys = planData
+    ? Object.keys(planData).filter((key) => key.startsWith("day_"))
+    : []
+  const todayMeals = dayKeys.length > 0 ? planData?.[dayKeys[0]] : null
 
-  const mealCount = planData
-    ? Object.keys(planData).filter(key => planData[key] && planData[key] !== "None" && typeof planData[key] === 'string').length
+  const mealCount = todayMeals
+    ? Object.values(todayMeals).filter((meal) => Boolean(meal)).length
     : 0
 
   return (
@@ -69,7 +71,7 @@ export function MealPreview() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {planData ? (
+        {todayMeals ? (
           <>
             <div>
               <p className="text-sm text-muted-foreground">Focus</p>

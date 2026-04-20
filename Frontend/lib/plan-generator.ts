@@ -2,23 +2,27 @@ import type { UserProfile, WorkoutPlan, MealPlan, WorkoutDay, Meal } from "./sto
 import { generateWorkoutPlan as apiGenerateWorkoutPlan, generateMealPlan as apiGenerateMealPlan } from "./api"
 
 export async function generatePlans(profile: UserProfile, token?: string) {
-  // Try backend-generated plans first, fallback to local generator
-  let workout: WorkoutPlan
-  let meal: MealPlan
+  // Run both plan requests in parallel so onboarding waits for the slower request once.
+  const [workoutResult, mealResult] = await Promise.allSettled([
+    apiGenerateWorkoutPlan(profile, token),
+    apiGenerateMealPlan(profile, token),
+  ])
 
-  try {
-    workout = await apiGenerateWorkoutPlan(profile, token)
-  } catch (e) {
-    console.error("Backend workout generation failed, falling back:", e)
-    workout = localGenerateWorkoutPlan(profile)
-  }
+  const workout =
+    workoutResult.status === "fulfilled"
+      ? workoutResult.value
+      : (() => {
+          console.error("Backend workout generation failed, falling back:", workoutResult.reason)
+          return localGenerateWorkoutPlan(profile)
+        })()
 
-  try {
-    meal = await apiGenerateMealPlan(profile, token)
-  } catch (e) {
-    console.error("Backend meal generation failed, falling back:", e)
-    meal = localGenerateMealPlan(profile)
-  }
+  const meal =
+    mealResult.status === "fulfilled"
+      ? mealResult.value
+      : (() => {
+          console.error("Backend meal generation failed, falling back:", mealResult.reason)
+          return localGenerateMealPlan(profile)
+        })()
 
   return { workout, meal }
 }
